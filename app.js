@@ -28,7 +28,7 @@ connectDB();
 // ----------------------
 const DEVICE_KEYS = { bulbA: "123456", bulbB: "654321" };
 const nodes = {
-  bulbA: { id: "bulbA", isOn: false, energyBalance: 100, consumptionRate: 5, lastSeen: null },
+  bulbA: { id: "bulbA", isOn: false, energyBalance: 1000000, consumptionRate: 5, lastSeen: null },
   bulbB: { id: "bulbB", isOn: false, energyBalance: 0, consumptionRate: 5, lastSeen: null },
 };
 
