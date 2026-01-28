@@ -79,6 +79,10 @@ wss.on("connection", (ws) => {
     console.log("WS connection closed");
   });
 });
+//Welcome message
+app.get('/', (req, res) => {
+  res.send('Welcome to IzubaSmartHub API!')
+})
 
 // ----------------------
 // 6️⃣ Device routes
