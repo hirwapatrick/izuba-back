@@ -48,8 +48,8 @@ function deviceAuth(req, res, next) {
 // 5️⃣ WebSocket server
 // ----------------------
 const server = app.listen(process.env.PORT, () => console.log(`Server running on port ${process.env.PORT}`));
-const wss = new WebSocketServer({ server });
-const clients = {}; // keep track of connected devices
+const wss = new WebSocketServer({ server, path: "/ws" });
+const clients = {}; 
 
 wss.on("connection", (ws) => {
   console.log("New WebSocket connection");
