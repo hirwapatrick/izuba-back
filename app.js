@@ -14,7 +14,6 @@ dotenv.config();
 // 1️⃣ Express setup
 // ----------------------
 export const app = express();
-
 app.use(cors());
 app.use(express.json());
 
@@ -36,14 +35,14 @@ const nodes = {
     id: "bulbA",
     isOn: false,
     energyBalance: 1000000,
-    consumptionRate: 5,
+    consumptionRate: 0.1, // 🔥 energy per SECOND
     lastSeen: null,
   },
   bulbB: {
     id: "bulbB",
     isOn: false,
     energyBalance: 0,
-    consumptionRate: 5,
+    consumptionRate: 0.1,
     lastSeen: null,
   },
 };
@@ -91,12 +90,7 @@ wss.on("connection", (ws) => {
         const { id, key } = data;
 
         if (DEVICE_KEYS[id] !== key) {
-          ws.send(
-            JSON.stringify({
-              type: "error",
-              message: "Unauthorized",
-            })
-          );
+          ws.send(JSON.stringify({ type: "error", message: "Unauthorized" }));
           ws.close();
           return;
         }
@@ -107,7 +101,6 @@ wss.on("connection", (ws) => {
 
         console.log(`✅ ${id} authenticated`);
 
-        // Send current device state
         ws.send(
           JSON.stringify({
             type: "status",
@@ -120,17 +113,12 @@ wss.on("connection", (ws) => {
       // -------- HEARTBEAT --------
       if (data.type === "heartbeat" && ws.deviceId) {
         nodes[ws.deviceId].lastSeen = Date.now();
-        console.log(`💓 Heartbeat from ${ws.deviceId}`);
       }
 
       // -------- DEVICE STATUS ACK --------
       if (data.type === "device-status" && ws.deviceId) {
         nodes[ws.deviceId].isOn = data.isOn;
         nodes[ws.deviceId].lastSeen = Date.now();
-
-        console.log(
-          `🔄 ${ws.deviceId} confirmed state: ${data.isOn ? "ON" : "OFF"}`
-        );
       }
     } catch (err) {
       console.error("❌ WS message error", err);
@@ -165,11 +153,7 @@ app.post("/api/device/on", deviceAuth, (req, res) => {
   d.isOn = true;
 
   clients[d.id]?.send(
-    JSON.stringify({
-      type: "status",
-      isOn: true,
-      energy: d.energyBalance,
-    })
+    JSON.stringify({ type: "status", isOn: true, energy: d.energyBalance })
   );
 
   res.json({ ok: true, device: d.id, isOn: true });
@@ -181,11 +165,7 @@ app.post("/api/device/off", deviceAuth, (req, res) => {
   d.isOn = false;
 
   clients[d.id]?.send(
-    JSON.stringify({
-      type: "status",
-      isOn: false,
-      energy: d.energyBalance,
-    })
+    JSON.stringify({ type: "status", isOn: false, energy: d.energyBalance })
   );
 
   res.json({ ok: true, device: d.id, isOn: false });
@@ -218,13 +198,12 @@ app.post("/api/share", userAuth, (req, res) => {
 
   nodes[from].energyBalance -= amount;
   nodes[to].energyBalance += amount;
-
-  if (nodes[to].energyBalance > 0) nodes[to].isOn = true;
+  nodes[to].isOn = true;
 
   clients[to]?.send(
     JSON.stringify({
       type: "status",
-      isOn: nodes[to].isOn,
+      isOn: true,
       energy: nodes[to].energyBalance,
     })
   );
@@ -239,7 +218,7 @@ app.post("/api/share", userAuth, (req, res) => {
 });
 
 // ----------------------
-// 1️⃣1️⃣ Energy consumption engine
+// 1️⃣1️⃣ Energy consumption engine (PER SECOND)
 // ----------------------
 setInterval(() => {
   Object.values(nodes).forEach((node) => {
@@ -251,23 +230,23 @@ setInterval(() => {
         node.isOn = false;
 
         clients[node.id]?.send(
+          JSON.stringify({ type: "status", isOn: false, energy: 0 })
+        );
+      } else {
+        clients[node.id]?.send(
           JSON.stringify({
-            type: "status",
-            isOn: false,
-            energy: 0,
+            type: "energy-update",
+            energy: Number(node.energyBalance.toFixed(2)),
           })
         );
       }
     }
   });
-}, 60 * 1000);
+}, 1000); // ⏱ every second
 
 // ----------------------
 // 1️⃣2️⃣ Helper: device online check
 // ----------------------
 export function isDeviceOnline(id) {
-  return (
-    nodes[id]?.lastSeen &&
-    Date.now() - nodes[id].lastSeen < 30000
-  );
+  return nodes[id]?.lastSeen && Date.now() - nodes[id].lastSeen < 30000;
 }
