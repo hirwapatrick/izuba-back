@@ -1,4 +1,4 @@
-// server.js
+// app.js
 import express from "express";
 import cors from "cors";
 import { WebSocketServer } from "ws";
@@ -35,7 +35,7 @@ const nodes = {
     id: "bulbA",
     isOn: false,
     energyBalance: 100000000000000,
-    consumptionRate: 0.1, // 🔥 energy per SECOND
+    consumptionRate: 0.1, // energy per second
     lastSeen: null,
   },
   bulbB: {
@@ -141,15 +141,10 @@ app.get("/", (req, res) => {
 });
 
 // ----------------------
-// 8️⃣ Device control API
+// 8️⃣ Device control API (ignore energy, allow on/off freely)
 // ----------------------
 app.post("/api/device/on", deviceAuth, (req, res) => {
   const d = req.device;
-
-  if (d.energyBalance <= 0) {
-    return res.json({ ok: false, message: "No energy" });
-  }
-
   d.isOn = true;
 
   clients[d.id]?.send(
@@ -161,7 +156,6 @@ app.post("/api/device/on", deviceAuth, (req, res) => {
 
 app.post("/api/device/off", deviceAuth, (req, res) => {
   const d = req.device;
-
   d.isOn = false;
 
   clients[d.id]?.send(
@@ -191,11 +185,6 @@ app.post("/api/share", userAuth, (req, res) => {
   if (req.user.bulbId !== from)
     return res.status(403).json({ ok: false, message: "Not authorized" });
 
-  if (nodes[from].energyBalance < amount)
-    return res
-      .status(400)
-      .json({ ok: false, message: "Insufficient energy" });
-
   nodes[from].energyBalance -= amount;
   nodes[to].energyBalance += amount;
   nodes[to].isOn = true;
@@ -222,27 +211,19 @@ app.post("/api/share", userAuth, (req, res) => {
 // ----------------------
 setInterval(() => {
   Object.values(nodes).forEach((node) => {
-    if (node.isOn && node.energyBalance > 0) {
+    if (node.isOn) {
       node.energyBalance -= node.consumptionRate;
 
-      if (node.energyBalance <= 0) {
-        node.energyBalance = 0;
-        node.isOn = false;
-
-        clients[node.id]?.send(
-          JSON.stringify({ type: "status", isOn: false, energy: 0 })
-        );
-      } else {
-        clients[node.id]?.send(
-          JSON.stringify({
-            type: "energy-update",
-            energy: Number(node.energyBalance.toFixed(2)),
-          })
-        );
-      }
+      // ⚡ Only update energy, do NOT turn off
+      clients[node.id]?.send(
+        JSON.stringify({
+          type: "energy-update",
+          energy: Number(node.energyBalance.toFixed(2)),
+        })
+      );
     }
   });
-}, 1000); // ⏱ every second
+}, 1000);
 
 // ----------------------
 // 1️⃣2️⃣ Helper: device online check
