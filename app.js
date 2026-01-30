@@ -34,7 +34,7 @@ const nodes = {
   bulbA: {
     id: "bulbA",
     isOn: false,
-    energyBalance: 1000000,
+    energyBalance: 100000000000000,
     consumptionRate: 0.1, // 🔥 energy per SECOND
     lastSeen: null,
   },
